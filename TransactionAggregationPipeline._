@@ -1,0 +1,24 @@
+db.transactions.aggregate([
+  {
+    $lookup: {
+      from: "accounts",
+      localField: "account.$id",
+      foreignField: "_id",
+      as: "accountDoc"
+    }
+  },
+  { $unwind: "$accountDoc" },
+  { $match: { "accountDoc._id": "8709152370" } },
+  {
+    $group: {
+      _id: "$accountDoc._id",
+      totalAmount: { $sum: "$amount" },
+      withdrawalCount: { $sum: { $cond: [{ $eq: ["$operation", "withdrawal"] }, 1, 0] } },
+      totalWithdrawalAmount: { $sum: { $cond: [{ $eq: ["$operation", "withdrawal"] }, "$amount", 0] } },
+      depositCount: { $sum: { $cond: [{ $eq: ["$operation", "deposit"] }, 1, 0] } },
+      totalDepositAmount: { $sum: { $cond: [{ $eq: ["$operation", "deposit"] }, "$amount", 0] } },
+      transferCount: { $sum: { $cond: [{ $eq: ["$operation", "transfer"] }, 1, 0] } },
+      totalTransferAmount: { $sum: { $cond: [{ $eq: ["$operation", "transfer"] }, "$amount", 0] } }
+    }
+  }
+])
