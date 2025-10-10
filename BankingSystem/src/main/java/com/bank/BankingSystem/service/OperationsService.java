@@ -1,5 +1,8 @@
 package com.bank.BankingSystem.service;
 
+import com.bank.BankingSystem.dao.AccountDaoImpl;
+import com.bank.BankingSystem.dao.TransactionDaoImpl;
+import com.bank.BankingSystem.dao.UserDaoImpl;
 import com.bank.BankingSystem.dto.DepositDto;
 import com.bank.BankingSystem.dto.TransactionResponse;
 import com.bank.BankingSystem.dto.TransferDto;
@@ -9,9 +12,7 @@ import com.bank.BankingSystem.entities.Transaction;
 import com.bank.BankingSystem.entities.User;
 import com.bank.BankingSystem.exceptions.BankingSystemException;
 import com.bank.BankingSystem.exceptions.ErrorCode;
-import com.bank.BankingSystem.repository.AccountRepository;
-import com.bank.BankingSystem.repository.TransactionRepo;
-import com.bank.BankingSystem.repository.UserRepo;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -21,34 +22,35 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class OperationsService {
     @Autowired
-    private AccountRepository accountRepository;
+    private AccountDaoImpl accountDao;
     @Autowired
-    private UserRepo userRepo;
+    private TransactionDaoImpl transactionDao;
+    @Autowired
+    private UserDaoImpl userDao;
 
-    @Autowired
-    private TransactionRepo transactionRepo;
 
 
     public Account createBankAccount(Account account,String username,String password){
 
-        User user = userRepo.findById(username)
+        User user = userDao.findByUsername(username)
                 .orElseThrow(() -> new BankingSystemException(ErrorCode.USER_NOT_FOUND));
 
         if (!java.util.Objects.equals(user.getPassword(), password)) {
             throw new BankingSystemException(ErrorCode.WRONG_CREDENTIALS);
         }
 
-        if(accountRepository.countByUserUsername(username) > 2 ){
+        if(accountDao.countByUserUsername(username) > 2 ){
             throw new BankingSystemException(ErrorCode.MAXIMUM_USERACCOUNT_LIMIT_REACHED);
         }
 
 //        account.setAccountNumber(Account.generateAccountNumber());
         while (true) {
             String candidate = Account.generateAccountNumber();
-            if (!accountRepository.existsById(candidate)) {
+            if (!accountDao.existsById(candidate)) {
                 account.setAccountNumber(candidate);
                 break;
             }
@@ -57,18 +59,23 @@ public class OperationsService {
         account.setCreatedAt(LocalDateTime.now());
         account.setUpdatedAt(LocalDateTime.now());
         account.setUser(user);
-        user.accounts.add(account);
-        return accountRepository.save(account);
+        user.setAccount(user.getAccounts());
+        user.addAccount(account);
+        userDao.save(user);
+        return accountDao.save(account);
     }
 
 
     public Transaction deposit(DepositDto dto, String username, String password) {
-        Optional<Account> account = accountRepository.findById(dto.getAccountNumber());
+        Optional<Account> account = accountDao.findByAccountNumber(dto.getAccountNumber());
         if (account.isEmpty()) {
             throw new BankingSystemException(ErrorCode.ACCOUNT_NOT_FOUND);
         }
 
         User u = account.get().getUser();
+        if (u == null) {
+            throw new BankingSystemException(ErrorCode.USER_NOT_FOUND);
+        }
         if (!(Objects.equals(u.getUsername(), username) && Objects.equals(u.getPassword(), password))) {
             throw new BankingSystemException(ErrorCode.WRONG_CREDENTIALS);
         }
@@ -80,14 +87,14 @@ public class OperationsService {
 
         Double balance = account.get().getBalance() + dto.getAmount();
         account.get().setBalance(balance);
-        accountRepository.save(account.get());
-        Transaction t = transactionRepo.save(transaction);
+        accountDao.save(account.get());
+        Transaction t = transactionDao.save(transaction);
         return transaction;
     }
 
 
     public Transaction withdraw(DepositDto dto, String username, String password) {
-        Optional<Account> account = accountRepository.findById(dto.getAccountNumber());
+        Optional<Account> account = accountDao.findByAccountNumber(dto.getAccountNumber());
         if (account.isEmpty()) {
             throw new BankingSystemException(ErrorCode.ACCOUNT_NOT_FOUND);
         }
@@ -107,14 +114,14 @@ public class OperationsService {
 
         Double balance = account.get().getBalance() - dto.getAmount();
         account.get().setBalance(balance);
-        accountRepository.save(account.get());
-        Transaction t = transactionRepo.save(transaction);
+        accountDao.save(account.get());
+        Transaction t = transactionDao.save(transaction);
         return transaction;
     }
 
 
     public Transaction transfer(TransferDto dto, String username, String password) {
-        Optional<Account> account = accountRepository.findById(dto.getAccountNumber());
+        Optional<Account> account = accountDao.findByAccountNumber(dto.getAccountNumber());
         if (account.isEmpty()) {
             throw new BankingSystemException(ErrorCode.ACCOUNT_NOT_FOUND);
         }
@@ -126,7 +133,7 @@ public class OperationsService {
         if (account.get().getBalance() < dto.getAmount()) {
             throw new BankingSystemException(ErrorCode.INSUFFICIENT_BALANCE);
         }
-        Optional<Account> recipientaccount = accountRepository.findById(dto.getRecipientAccountNumber());
+        Optional<Account> recipientaccount = accountDao.findByAccountNumber(dto.getRecipientAccountNumber());
         if (account.isEmpty()) {
             throw new BankingSystemException(ErrorCode.ACCOUNT_NOT_FOUND);
         }
@@ -140,16 +147,17 @@ public class OperationsService {
         Double balance = account.get().getBalance() - dto.getAmount();
         account.get().setBalance(balance);
         recipientaccount.get().setBalance(recipientaccount.get().getBalance() + dto.getAmount());
-        accountRepository.save(account.get());
-        accountRepository.save(recipientaccount.get());
-        Transaction t = transactionRepo.save(transaction);
+        accountDao.save(account.get());
+        accountDao.save(recipientaccount.get());
+        Transaction t = transactionDao.save(transaction);
         return transaction;
 
     }
 
     public Account getAccountDetails(String accountNumber,String username,String password){
-        Optional<Account> account = accountRepository.findById(accountNumber);
+        Optional<Account> account = accountDao.findByAccountNumber(accountNumber);
         if (account.isEmpty()) {
+            log.error("Account not found for account number {}", accountNumber);
             throw new BankingSystemException(ErrorCode.ACCOUNT_NOT_FOUND);
         }
 
@@ -163,7 +171,7 @@ public class OperationsService {
 
 
     public List<TransactionResponse> getTransactions(String accountNumber, String username, String password) {
-        Optional<Account> account = accountRepository.findById(accountNumber);
+        Optional<Account> account = accountDao.findByAccountNumber(accountNumber);
         if (account.isEmpty()) {
             throw new BankingSystemException(ErrorCode.ACCOUNT_NOT_FOUND);
         }
@@ -171,7 +179,8 @@ public class OperationsService {
         if (!(Objects.equals(u.getUsername(), username) && Objects.equals(u.getPassword(), password))) {
             throw new BankingSystemException(ErrorCode.WRONG_CREDENTIALS);
         }
-        List<Transaction> list = transactionRepo.findAllByAccountNumber(accountNumber);
+        List<Transaction> list = transactionDao.finAllByAccountNumber(accountNumber);
+        System.out.println(list);
         List<TransactionResponse> list1 = list.stream().map(t -> {
             TransactionResponse tr = new TransactionResponse();
             tr.setTransactionId(t.transactionId);

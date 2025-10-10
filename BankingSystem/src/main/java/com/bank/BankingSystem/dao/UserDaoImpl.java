@@ -1,22 +1,32 @@
 package com.bank.BankingSystem.dao;
 
 import com.bank.BankingSystem.entities.Account;
+import com.bank.BankingSystem.entities.AccountType;
+import com.bank.BankingSystem.entities.Transaction;
 import com.bank.BankingSystem.entities.User;
+import com.bank.BankingSystem.exceptions.BankingSystemException;
+import com.bank.BankingSystem.exceptions.ErrorCode;
 import com.mongodb.*;
-import com.mongodb.client.MongoDatabase;
-import org.springframework.data.mongodb.core.mapping.Document;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
 @Component
 public class UserDaoImpl implements UserDao{
+    @Autowired
+    private TransactionDaoImpl transactionDao;
 
-   private final DBCollection userCollection;
-    public UserDaoImpl( MongoDatabase mongoDatabase) {
 
-        this.userCollection = (DBCollection) mongoDatabase.getCollection("user");
+    private final DBCollection userCollection;
+    public UserDaoImpl( DBCollection userCollection) {
+     this.userCollection = userCollection;
     }
     @Override
     public Optional<User> findByUsername(String username) {
@@ -31,25 +41,35 @@ public class UserDaoImpl implements UserDao{
 
     @Override
     public User save(User user) {
-        DBObject dbObject = new BasicDBObject();
-        dbObject.put("_id", user.getUsername());
-        dbObject.put("name", user.getName());
-        dbObject.put("email", user.getEmail());
-        dbObject.put("password", user.getPassword());
-        dbObject.put("accounts", user.getAccounts());
-
-
+      DBObject dbObject = userToDbObject(user);
         DBObject query = new BasicDBObject("_id", user.getUsername());
        userCollection.update(query, dbObject, true, false);
 
         return user;
     }
+    @Autowired
+   AccountDaoImpl accountDao;
 
     @Override
     public Optional<User> deleteUserByUsernameAndPassword(String username, String password) {
 
         DBObject query = new BasicDBObject("_id", username).append("password", password);
         Optional<User> optionalUser = findByUsername(username);
+        if(!optionalUser.isPresent()){
+            throw new BankingSystemException(ErrorCode.USER_NOT_FOUND);
+        }
+        User user = optionalUser.get();
+
+        if (user.getAccounts() != null && !user.getAccounts().isEmpty()) {
+            user.getAccounts().forEach(account -> {
+                List<Transaction> transactions = transactionDao.finAllByAccountNumber(account.getAccountNumber());
+                if (transactions != null && !transactions.isEmpty()) {
+                    transactionDao.deleteAllByAccountNumber(account.getAccountNumber());
+                }
+            });
+
+            accountDao.deleteAccountByUsername(username);
+        }
         userCollection.remove(query);
         return optionalUser;
 
@@ -62,7 +82,98 @@ public class UserDaoImpl implements UserDao{
         user.setName((String) dbObject.get("name"));
         user.setEmail((String) dbObject.get("email"));
         user.setPassword((String) dbObject.get("password"));
-        user.setAccounts((List<Account>) dbObject.get("accounts")); // cast appropriately
+
+        List<DBObject> accountsDb = (List<DBObject>) dbObject.get("accounts");
+        if (accountsDb != null) {
+            List<Account> accounts = accountsDb.stream()
+                    .map(this::dbObjectToAccount)
+                    .toList();
+            user.setAccounts(accounts);
+        } else {
+            user.setAccounts(List.of());
+        }
         return user;
     }
+
+
+    private DBObject userToDbObject(User user){
+        DBObject dbObject = new BasicDBObject();
+        dbObject.put("_id", user.getUsername());
+        dbObject.put("name", user.getName());
+        dbObject.put("email", user.getEmail());
+        dbObject.put("password", user.getPassword());
+
+        List<Account> accounts = user.getAccounts();
+        if (accounts != null && !accounts.isEmpty()) {
+            List<DBObject> accountsDbObject = accounts.stream()
+                    .map(this::accountToDbObject)
+                    .toList();
+            dbObject.put("accounts", accountsDbObject);
+        }
+
+        dbObject.put("_class", user.getClass().getName());
+        return dbObject;
+    }
+
+     private DBObject accountToDbObject(Account account){
+        DBObject dbObject = new BasicDBObject();
+        dbObject.put("_id", account.getAccountNumber());
+        dbObject.put("accountType", account.getAccountType().toString());
+        dbObject.put("createdAt", account.getCreatedAt());
+        dbObject.put("updatedAt", account.getUpdatedAt());
+        dbObject.put("balance", account.getBalance());
+        return dbObject;
+    }
+
+    public Account dbObjectToAccount(DBObject dbObject) {
+        Account account = new Account();
+        account.setAccountNumber((String) dbObject.get("_id"));
+
+        Object at = dbObject.get("accountType");
+        if (at instanceof String) {
+            account.setAccountType(AccountType.valueOf((String) at));
+        } else {
+            account.setAccountType(null);
+        }
+
+        account.setCreatedAt(fromDate((Date) dbObject.get("createdAt")));
+        account.setUpdatedAt(fromDate((Date) dbObject.get("updatedAt")));
+
+        Object bal = dbObject.get("balance");
+        if (bal instanceof Number) {
+            account.setBalance(((Number) bal).doubleValue());
+        } else {
+            account.setBalance(null);
+        }
+
+        Object userObj = dbObject.get("user");
+        if (userObj instanceof DBObject) {
+            account.setUser(fromUserDBObject((DBObject) userObj));
+        } else {
+            account.setUser(null);
+        }
+
+        return account;
+    }
+    private static User fromUserDBObject(DBObject dbo) {
+        if (dbo == null) return null;
+        User u = new User();
+        u.setUsername((String) dbo.get("username"));
+        u.setPassword((String) dbo.get("password"));
+
+        return u;
+    }
+
+    private static Date toDate(LocalDateTime ldt) {
+        if (ldt == null) return null;
+        Instant instant = ldt.atZone(ZoneId.systemDefault()).toInstant();
+        return Date.from(instant);
+    }
+
+    private static LocalDateTime fromDate(Date date) {
+        if (date == null) return null;
+        return LocalDateTime.ofInstant(date.toInstant(), ZoneId.systemDefault());
+    }
+
+
 }
