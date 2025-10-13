@@ -19,6 +19,20 @@ public class OperationsController {
     @Autowired
     private OperationsService operationsService;
 
+    /**
+     *
+     *
+     *
+     *
+     * @param account account is the entity that is being created
+     * @param username username is the one who is creating the account
+     * @param password password of the user
+     * @return it returns the created user account
+     * @author Rohan Rote
+     * @description This method is used to create a new account for a user
+     */
+    //TODO : add try catch
+
     @PostMapping("/createBankAccount") //TODO : meaningfull names shoulf
     public ResponseEntity<Account> createBankAccount(@RequestBody Account account,
                                                      @RequestHeader("user-name") String username,
@@ -27,6 +41,13 @@ public class OperationsController {
         return ResponseEntity.ok(account);
     }
 
+    /**
+     *
+     * @param transaction is the object of DepositDto class that is passed ton
+     * @param username
+     * @param password
+     * @return
+     */
     @PostMapping("/deposite")
     public ResponseEntity<Transaction> deposite(@RequestBody DepositDto transaction, @RequestHeader("user-name") String username, @RequestHeader("password") String password) {
 

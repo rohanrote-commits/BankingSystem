@@ -3,8 +3,6 @@ package com.bank.BankingSystem.entities;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
-
-import org.bson.types.Decimal128;
 import org.springframework.data.annotation.Id;
 
 
@@ -27,8 +25,7 @@ public class Account {
     private LocalDateTime updatedAt;
 
 
-    @JsonBackReference
-    private User user;
+    private String username;
 
 
     public static String generateAccountNumber() {

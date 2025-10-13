@@ -17,11 +17,14 @@ public class User {
     public String email;
     public String password;
 
-    @JsonManagedReference
-    public List<Account> accounts = new ArrayList<>();
+
+   //TODO : dont completely embed account
+
+    public List<String> accounts = new ArrayList<>();
 
 
-    public void setAccount(List<Account> accounts) {
+
+    public void setAccount(List<String> accounts) {
         this.accounts = (accounts == null) ? new ArrayList<>() : new ArrayList<>(accounts);
     }
 
@@ -30,13 +33,13 @@ public class User {
         if (this.accounts == null) {
             this.accounts = new ArrayList<>();
         }
-        this.accounts.add(account);
+        this.accounts.add(account.getAccountNumber());
         account.setUser(this);
     }
 
     public void removeAccount(Account account) {
         if (account == null || this.accounts == null) return;
-        this.accounts.remove(account);
+        this.accounts.remove(account.getAccountNumber());
         if (account.getUser() == this) {
             account.setUser(null);
         }

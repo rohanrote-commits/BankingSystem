@@ -58,7 +58,7 @@ public class OperationsService {
 
         account.setCreatedAt(LocalDateTime.now());
         account.setUpdatedAt(LocalDateTime.now());
-        account.setUser(user);
+        account.setUsername(user.getUsername());
         user.setAccount(user.getAccounts());
         user.addAccount(account);
         userDao.save(user);
@@ -72,7 +72,7 @@ public class OperationsService {
             throw new BankingSystemException(ErrorCode.ACCOUNT_NOT_FOUND);
         }
 
-        User u = account.get().getUser();
+        User u = userDao.findByUsername(username).orElse(null);
         if (u == null) {
             throw new BankingSystemException(ErrorCode.USER_NOT_FOUND);
         }
@@ -99,7 +99,8 @@ public class OperationsService {
             throw new BankingSystemException(ErrorCode.ACCOUNT_NOT_FOUND);
         }
 
-        User u = account.get().getUser();
+        User u = userDao.findByUsername(username).orElse(null);
+
         if (!(Objects.equals(u.getUsername(), username) && Objects.equals(u.getPassword(), password))) {
             throw new BankingSystemException(ErrorCode.WRONG_CREDENTIALS);
         }
@@ -126,7 +127,7 @@ public class OperationsService {
             throw new BankingSystemException(ErrorCode.ACCOUNT_NOT_FOUND);
         }
 
-        User u = account.get().getUser();
+        User u = userDao.findByUsername(username).orElse(null);
         if (!(Objects.equals(u.getUsername(), username) && Objects.equals(u.getPassword(), password))) {
             throw new BankingSystemException(ErrorCode.WRONG_CREDENTIALS);
         }

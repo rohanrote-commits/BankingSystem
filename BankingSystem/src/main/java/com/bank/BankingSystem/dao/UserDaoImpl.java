@@ -22,6 +22,8 @@ import java.util.Optional;
 public class UserDaoImpl implements UserDao{
     @Autowired
     private TransactionDaoImpl transactionDao;
+    @Autowired
+    AccountDaoImpl accountDao;
 
 
     private final DBCollection userCollection;
@@ -47,8 +49,7 @@ public class UserDaoImpl implements UserDao{
 
         return user;
     }
-    @Autowired
-   AccountDaoImpl accountDao;
+
 
     @Override
     public Optional<User> deleteUserByUsernameAndPassword(String username, String password) {
