@@ -6,14 +6,17 @@ import com.bank.BankingSystem.dto.TransferDto;
 import com.bank.BankingSystem.entities.Account;
 import com.bank.BankingSystem.entities.Transaction;
 import com.bank.BankingSystem.service.OperationsService;
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Slf4j
 @RestController
-@RequestMapping("/api/operations")
+@RequestMapping("/banking/operations")
 public class OperationsController {
 
     @Autowired
@@ -25,54 +28,75 @@ public class OperationsController {
      *
      *
      * @param account account is the entity that is being created
-     * @param username username is the one who is creating the account
-     * @param password password of the user
      * @return it returns the created user account
      * @author Rohan Rote
      * @description This method is used to create a new account for a user
      */
     //TODO : add try catch
 
-    @PostMapping("/createBankAccount") //TODO : meaningfull names shoulf
-    public ResponseEntity<Account> createBankAccount(@RequestBody Account account,
-                                                     @RequestHeader("user-name") String username,
-                                                     @RequestHeader("password") String password) {
-        operationsService.createBankAccount(account, username, password);
+    @PostMapping("/accounts") //TODO : meaningfull names shoulf
+    public ResponseEntity<Account> createBankAccount(@RequestBody Account account, HttpServletRequest request) {
+        String username = request.getAttribute("username").toString();
+        operationsService.createBankAccount(account, username);
         return ResponseEntity.ok(account);
     }
 
     /**
      *
      * @param transaction is the object of DepositDto class that is passed ton
-     * @param username
-     * @param password
-     * @return
+     * @return returns the transaction object
      */
     @PostMapping("/deposite")
-    public ResponseEntity<Transaction> deposite(@RequestBody DepositDto transaction, @RequestHeader("user-name") String username, @RequestHeader("password") String password) {
+    public ResponseEntity<Transaction> deposite(@RequestBody DepositDto transaction, HttpServletRequest request) {
+        String username = request.getAttribute("username").toString();
 
-        return ResponseEntity.ok(operationsService.deposit(transaction, username, password));
+        return ResponseEntity.ok(operationsService.deposit(transaction, username));
     }
 
+    /**
+     *
+     * @param transaction DepositDto object that is passed in request body
+     * @return returns the transaction object
+     */
     @PostMapping("/withdraw")
-    public ResponseEntity<Transaction> withdraw(@RequestBody DepositDto transaction, @RequestHeader("user-name") String username, @RequestHeader("password") String password) {
+    public ResponseEntity<Transaction> withdraw(@RequestBody DepositDto transaction, HttpServletRequest request) {
 
-        return ResponseEntity.ok(operationsService.withdraw(transaction, username, password));
+      String username = request.getAttribute("username").toString();
+        log.info("username " + request.getAttribute("username"));
+        return ResponseEntity.ok(operationsService.withdraw(transaction, username));
     }
 
+    /**
+     *
+     * @param transaction TransferDto object that is passed in request body
+     * @return returns the transaction object
+     */
     @PostMapping("/transfer")
-    public ResponseEntity<Transaction> transfer(@RequestBody TransferDto transaction, @RequestHeader("user-name") String username, @RequestHeader("password") String password) {
-        return ResponseEntity.ok(operationsService.transfer(transaction, username, password));
+    public ResponseEntity<Transaction> transfer(@RequestBody TransferDto transaction, HttpServletRequest request) {
+        String username = request.getAttribute("username").toString();
+        return ResponseEntity.ok(operationsService.transfer(transaction, username));
     }
 
+    /**
+     *
+     * @param accountNumber account number of the account is passed in request param
+     * @return returns the account object
+     */
     @GetMapping("/details")
-    public ResponseEntity<Account> getAccountDetails(@RequestParam String accountNumber, @RequestHeader("user-name") String username, @RequestHeader("password") String password) {
-        return ResponseEntity.ok(operationsService.getAccountDetails(accountNumber, username, password));
+    public ResponseEntity<Account> getAccountDetails(@RequestParam String accountNumber, HttpServletRequest request) {
+        String username = request.getAttribute("username").toString();
+        return ResponseEntity.ok(operationsService.getAccountDetails(accountNumber, username));
     }
 
-    @GetMapping("/getTransactions")
-    public ResponseEntity<List<TransactionResponse>> getTransactions(@RequestParam String accountNumber, @RequestHeader("user-name") String username, @RequestHeader("password") String password) {
-        return ResponseEntity.ok(operationsService.getTransactions(accountNumber, username, password));
+    /**
+     *
+     * @param accountNumber account number of the account is passed in request param
+     * @return returns the list of transaction objects
+     */
+    @GetMapping("/transaction")
+    public ResponseEntity<List<TransactionResponse>> getTransactions(@RequestParam String accountNumber, HttpServletRequest request) {
+        String username = request.getAttribute("username").toString();
+        return ResponseEntity.ok(operationsService.getTransactions(accountNumber, username));
     }
 
 }

@@ -7,7 +7,6 @@ import com.bank.BankingSystem.entities.User;
 import com.bank.BankingSystem.exceptions.BankingSystemException;
 import com.bank.BankingSystem.exceptions.ErrorCode;
 import com.mongodb.*;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -19,17 +18,18 @@ import java.util.List;
 import java.util.Optional;
 
 @Component
-public class UserDaoImpl implements UserDao{
+public class UserDaoImpl implements UserDao {
     @Autowired
     private TransactionDaoImpl transactionDao;
     @Autowired
     AccountDaoImpl accountDao;
 
-
     private final DBCollection userCollection;
-    public UserDaoImpl( DBCollection userCollection) {
-     this.userCollection = userCollection;
+
+    public UserDaoImpl(DBCollection userCollection) {
+        this.userCollection = userCollection;
     }
+
     @Override
     public Optional<User> findByUsername(String username) {
         DBObject query = new BasicDBObject("_id", username);
@@ -43,39 +43,33 @@ public class UserDaoImpl implements UserDao{
 
     @Override
     public User save(User user) {
-      DBObject dbObject = userToDbObject(user);
+        DBObject dbObject = userToDbObject(user);
         DBObject query = new BasicDBObject("_id", user.getUsername());
-       userCollection.update(query, dbObject, true, false);
-
+        userCollection.update(query, dbObject, true, false);
         return user;
     }
 
-
     @Override
     public Optional<User> deleteUserByUsernameAndPassword(String username, String password) {
-
         DBObject query = new BasicDBObject("_id", username).append("password", password);
         Optional<User> optionalUser = findByUsername(username);
-        if(!optionalUser.isPresent()){
+        if (!optionalUser.isPresent()) {
             throw new BankingSystemException(ErrorCode.USER_NOT_FOUND);
         }
         User user = optionalUser.get();
 
         if (user.getAccounts() != null && !user.getAccounts().isEmpty()) {
             user.getAccounts().forEach(account -> {
-                List<Transaction> transactions = transactionDao.finAllByAccountNumber(account.getAccountNumber());
+                List<Transaction> transactions = transactionDao.finAllByAccountNumber(account);
                 if (transactions != null && !transactions.isEmpty()) {
-                    transactionDao.deleteAllByAccountNumber(account.getAccountNumber());
+                    transactionDao.deleteAllByAccountNumber(account);
                 }
             });
-
             accountDao.deleteAccountByUsername(username);
         }
         userCollection.remove(query);
         return optionalUser;
-
     }
-
 
     private User dbObjectToUser(DBObject dbObject) {
         User user = new User();
@@ -84,45 +78,26 @@ public class UserDaoImpl implements UserDao{
         user.setEmail((String) dbObject.get("email"));
         user.setPassword((String) dbObject.get("password"));
 
-        List<DBObject> accountsDb = (List<DBObject>) dbObject.get("accounts");
-        if (accountsDb != null) {
-            List<Account> accounts = accountsDb.stream()
-                    .map(this::dbObjectToAccount)
-                    .toList();
-            user.setAccounts(accounts);
+        Object accountsObj = dbObject.get("accounts");
+        if (accountsObj instanceof List<?>) {
+            user.setAccounts(((List<?>) accountsObj).stream()
+                    .filter(String.class::isInstance)
+                    .map(String.class::cast)
+                    .toList());
         } else {
             user.setAccounts(List.of());
         }
         return user;
     }
 
-
-    private DBObject userToDbObject(User user){
+    private DBObject userToDbObject(User user) {
         DBObject dbObject = new BasicDBObject();
         dbObject.put("_id", user.getUsername());
         dbObject.put("name", user.getName());
         dbObject.put("email", user.getEmail());
         dbObject.put("password", user.getPassword());
-
-        List<Account> accounts = user.getAccounts();
-        if (accounts != null && !accounts.isEmpty()) {
-            List<DBObject> accountsDbObject = accounts.stream()
-                    .map(this::accountToDbObject)
-                    .toList();
-            dbObject.put("accounts", accountsDbObject);
-        }
-
+        dbObject.put("accounts", user.getAccounts());
         dbObject.put("_class", user.getClass().getName());
-        return dbObject;
-    }
-
-     private DBObject accountToDbObject(Account account){
-        DBObject dbObject = new BasicDBObject();
-        dbObject.put("_id", account.getAccountNumber());
-        dbObject.put("accountType", account.getAccountType().toString());
-        dbObject.put("createdAt", account.getCreatedAt());
-        dbObject.put("updatedAt", account.getUpdatedAt());
-        dbObject.put("balance", account.getBalance());
         return dbObject;
     }
 
@@ -148,21 +123,13 @@ public class UserDaoImpl implements UserDao{
         }
 
         Object userObj = dbObject.get("user");
-        if (userObj instanceof DBObject) {
-            account.setUser(fromUserDBObject((DBObject) userObj));
+        if (userObj instanceof DBObject dbo) {
+            account.setUsername((String) dbo.get("username"));
         } else {
-            account.setUser(null);
+            account.setUsername(null);
         }
 
         return account;
-    }
-    private static User fromUserDBObject(DBObject dbo) {
-        if (dbo == null) return null;
-        User u = new User();
-        u.setUsername((String) dbo.get("username"));
-        u.setPassword((String) dbo.get("password"));
-
-        return u;
     }
 
     private static Date toDate(LocalDateTime ldt) {
@@ -175,6 +142,4 @@ public class UserDaoImpl implements UserDao{
         if (date == null) return null;
         return LocalDateTime.ofInstant(date.toInstant(), ZoneId.systemDefault());
     }
-
-
 }

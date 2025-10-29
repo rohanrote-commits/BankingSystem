@@ -34,14 +34,14 @@ public class User {
             this.accounts = new ArrayList<>();
         }
         this.accounts.add(account.getAccountNumber());
-        account.setUser(this);
+        account.setUsername(this.username);
     }
 
     public void removeAccount(Account account) {
         if (account == null || this.accounts == null) return;
         this.accounts.remove(account.getAccountNumber());
-        if (account.getUser() == this) {
-            account.setUser(null);
+        if (account.getUsername() == this.username) {
+            account.setUsername(null);
         }
     }
 

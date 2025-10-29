@@ -2,12 +2,10 @@ package com.bank.BankingSystem.dao;
 
 import com.bank.BankingSystem.entities.Account;
 import com.bank.BankingSystem.entities.AccountType;
-import com.bank.BankingSystem.entities.User;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.WriteResult;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
@@ -18,59 +16,43 @@ import java.util.Date;
 import java.util.Optional;
 
 @Component
-public class AccountDaoImpl implements AccountsDao{
+public class AccountDaoImpl implements AccountsDao {
 
     private final DBCollection accountCollection;
 
-    public AccountDaoImpl( @Qualifier("bankAccountCollection")DBCollection accountCollection) {
+    public AccountDaoImpl(@Qualifier("bankAccountCollection") DBCollection accountCollection) {
         this.accountCollection = accountCollection;
     }
-
-
-
 
     @Override
     public boolean existsByAccountNumber(String accountNumber) {
         DBObject query = new BasicDBObject("_id", accountNumber);
-        if (accountCollection.findOne(query) != null) {
-            return true;
-        }
-
-        return false;
+        return accountCollection.findOne(query) != null;
     }
 
     @Override
     public long countByUserUsername(String username) {
         DBObject query = new BasicDBObject("user.username", username);
-        if (accountCollection.count(query) > 0) {
-            return accountCollection.count(query);
-        }
-        return 0;
+        return accountCollection.count(query);
     }
 
     @Override
     public boolean existsById(String candidate) {
         DBObject query = new BasicDBObject("_id", candidate);
-        if (accountCollection.findOne(query) != null) {
-            return true;
-        }
-        return false;
+        return accountCollection.findOne(query) != null;
     }
 
     @Override
     public Account save(Account account) {
-
         DBObject dbObject = new BasicDBObject("_id", account.getAccountNumber())
-                .append("user", toUserDBObject(account.getUser()))
+                .append("user", new BasicDBObject("username", account.getUsername()))
                 .append("accountType", account.getAccountType() != null ? account.getAccountType().name() : null)
                 .append("createdAt", toDate(account.getCreatedAt()))
                 .append("updatedAt", toDate(account.getUpdatedAt()))
                 .append("balance", account.getBalance());
 
-
         DBObject query = new BasicDBObject("_id", account.getAccountNumber());
         accountCollection.update(query, dbObject, true, false);
-
         return account;
     }
 
@@ -81,7 +63,6 @@ public class AccountDaoImpl implements AccountsDao{
         if (result != null) {
             Account account = dbObjectToAccount(result);
             return Optional.of(account);
-
         }
         return Optional.empty();
     }
@@ -89,12 +70,8 @@ public class AccountDaoImpl implements AccountsDao{
     @Override
     public void deleteAccountByUsername(String username) {
         DBObject query = new BasicDBObject("user.username", username);
-        WriteResult result = accountCollection.remove(query);
-        System.out.println("Deleted accounts: " + result.getN());
-
-
+        accountCollection.remove(query);
     }
-
 
     public Account dbObjectToAccount(DBObject dbObject) {
         Account account = new Account();
@@ -118,31 +95,13 @@ public class AccountDaoImpl implements AccountsDao{
         }
 
         Object userObj = dbObject.get("user");
-        if (userObj instanceof DBObject) {
-            account.setUser(fromUserDBObject((DBObject) userObj));
+        if (userObj instanceof DBObject dbo) {
+            account.setUsername((String) dbo.get("username"));
         } else {
-            account.setUser(null);
+            account.setUsername(null);
         }
 
         return account;
-    }
-
-    private static DBObject toUserDBObject(User user) {
-        if (user == null) return null;
-        BasicDBObject dbo = new BasicDBObject();
-
-        dbo.append("username", user.getUsername());
-        dbo.append("password", user.getPassword());
-        return dbo;
-    }
-
-    private static User fromUserDBObject(DBObject dbo) {
-        if (dbo == null) return null;
-        User u = new User();
-        u.setUsername((String) dbo.get("username"));
-        u.setPassword((String) dbo.get("password"));
-
-        return u;
     }
 
     private static Date toDate(LocalDateTime ldt) {
@@ -155,5 +114,4 @@ public class AccountDaoImpl implements AccountsDao{
         if (date == null) return null;
         return LocalDateTime.ofInstant(date.toInstant(), ZoneId.systemDefault());
     }
-
 }

@@ -11,12 +11,17 @@ import org.springframework.web.bind.annotation.*;
 
 
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/banking/users")
 public class UserController {
 
     @Autowired
     private UserService userService;
 
+    /**
+     *
+     * @param user user object is passed in the request body
+     * @return returns thr response of User Registered
+     */
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@RequestBody User user){
         userService.registerUser(user);
@@ -24,23 +29,45 @@ public class UserController {
         return new ResponseEntity<>("User Registered", HttpStatus.CREATED);
     }
 
-    @GetMapping("/getUser")
+    /**
+     *
+     * @param getUserdto this object is passed in the request body
+     * @return returns the user object
+     */
+    @GetMapping("/get-user")
     public ResponseEntity<?> getUser(@RequestBody GetUserdto getUserdto){
         User user = userService.getUser(getUserdto);
         return new ResponseEntity<>(user, HttpStatus.OK);
     }
 
-    @DeleteMapping("/deleteUser")
+    /**
+     *
+     * @param getUserdto this object is passed in the request body
+     * @return returns the user object
+     */
+    @DeleteMapping("/delete-user")
     public ResponseEntity<?> deleteUser(@RequestBody GetUserdto getUserdto){
         User user = userService.deleteUser(getUserdto);
         return new ResponseEntity<>(user, HttpStatus.OK);
     }
 
+    /**
+     *
+     * @param updatedto this object is passed in the request body
+     * @param username usermalename is passed in the header
+     * @param password password is passed in the header
+     * @return returns the user object
+     */
     @PutMapping("/update")
     public ResponseEntity<?> updateUser(@RequestBody Updatedto updatedto,@RequestHeader("user-name") String username, @RequestHeader("password") String password){
         userService.updateUser(updatedto,username,password);
         return new ResponseEntity<>("User Updated", HttpStatus.OK);
 
+    }
+
+    @GetMapping("/login")
+    public String login(@RequestHeader("user-name") String username, @RequestHeader("password") String password){
+        return userService.generateLoginToken(username,password);
     }
 
 

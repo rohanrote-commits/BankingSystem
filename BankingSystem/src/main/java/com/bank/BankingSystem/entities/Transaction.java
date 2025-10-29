@@ -14,7 +14,7 @@ public class Transaction {
     @Id
     public String transactionId;
 
-    public Account account;
+    public String accountNumber;
     public Double amount;
     public Operations operation;
    public LocalDateTime createdAt;
